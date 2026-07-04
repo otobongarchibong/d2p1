@@ -1,0 +1,10 @@
+{
+  "name": "em2-d2p1-generator",
+  "version": "4.0.0",
+  "private": true,
+  "description": "EM2 D2P1 Enterprise Meeting Kit Generator — production self-hosted build",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=18" },
+  "dependencies": { "express": "^4.19.0" }
+}
