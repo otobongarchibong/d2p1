@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
 <title>EM2 D2P1 Meeting Kit Generator</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&family=DM+Sans:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -1391,6 +1392,42 @@ $("dlpdf").onclick = function(){
     doc.save((f.org || "Entity").replace(/[^A-Za-z0-9]+/g, "_") + "_EM2_Dossier.pdf");
   }catch(e){ banner("PDF export failed: " + e.message, true); }
 };
+</script>
+
+<!-- Password gate -->
+<div id="pg-overlay" style="display:none;position:fixed;inset:0;z-index:9999;background:#0F1C2E;display:flex;align-items:center;justify-content:center">
+  <div style="background:#152539;border:1px solid #2A3E58;border-radius:12px;padding:40px 36px;width:100%;max-width:360px;text-align:center">
+    <div style="font-family:'DM Mono',monospace;font-size:13px;letter-spacing:.18em;color:#6B8CBF;margin-bottom:6px">EM2 · INTERNAL</div>
+    <div style="font-family:'Cormorant Garamond',Georgia,serif;font-size:28px;font-weight:600;color:#fff;margin-bottom:22px">Enter Passcode</div>
+    <input id="pg-input" type="password" placeholder="passcode" style="text-align:center;font-size:16px;letter-spacing:.12em;margin-bottom:8px" autocomplete="current-password">
+    <div id="pg-err" style="font-family:'DM Mono',monospace;font-size:11px;color:#E03030;min-height:18px;margin-bottom:10px"></div>
+    <button id="pg-btn" style="width:100%;background:#E03030;color:#fff;border:none;border-radius:8px;padding:13px;font-size:15px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif">Enter</button>
+  </div>
+</div>
+<script>
+(function(){
+  var KEY="d2p1_auth", PASS="em2ent";
+  var overlay=document.getElementById("pg-overlay");
+  var input=document.getElementById("pg-input");
+  var btn=document.getElementById("pg-btn");
+  var err=document.getElementById("pg-err");
+  if(sessionStorage.getItem(KEY)==="1"){overlay.style.display="none";return;}
+  overlay.style.display="flex";
+  document.body.style.overflow="hidden";
+  function attempt(){
+    if(input.value===PASS){
+      sessionStorage.setItem(KEY,"1");
+      overlay.style.display="none";
+      document.body.style.overflow="";
+    } else {
+      err.textContent="Incorrect passcode.";
+      input.value="";
+      input.focus();
+    }
+  }
+  btn.addEventListener("click",attempt);
+  input.addEventListener("keydown",function(e){if(e.key==="Enter")attempt();});
+})();
 </script>
 </body>
 </html>
