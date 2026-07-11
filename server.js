@@ -1,19 +1,27 @@
-/* EM2 D2P1 Meeting Kit Generator — production server (v4.0)
+/* EM2 D2P1 Meeting Kit Generator — production server (v4.1)
    - Serves the app from /public
-   - /api/claude  : proxies the Anthropic Messages API with the server-side key
-   - /api/ahrefs  : deterministic data pull straight from the Ahrefs REST API
-   - /api/health  : configuration + liveness probe
+   - /api/claude       : proxies the Anthropic Messages API with the server-side key
+   - /api/ahrefs       : deterministic data pull straight from the Ahrefs REST API
+   - /api/embed-fonts  : v4.1 — embeds brand fonts into a generated PPTX (pure JS, no Python)
+   - /api/render-pdf   : v4.1 — server-side PPTX -> PDF via headless LibreOffice
+   - /api/health       : configuration + liveness probe
    Keys never reach the browser. Node 18+ (global fetch). */
 
 const express = require("express");
 const path = require("path");
+const fs = require("fs");
+const fsp = require("fs/promises");
+const os = require("os");
+const { execFile } = require("child_process");
+const { embedFonts } = require("./lib/embedFontsPptx");
 
 const app = express();
-app.use(express.json({ limit: "2mb" }));
+app.use(express.json({ limit: "20mb" })); // base64 PPTX/PDF payloads need headroom over the default 2mb
 app.use(express.static(path.join(__dirname, "public")));
 
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 const AHREFS_BASE = process.env.AHREFS_BASE || "https://api.ahrefs.com/v3";
+const FONTS_DIR = path.join(__dirname, "assets", "fonts", "static");
 
 // injectable for tests
 app.set("upstream", (...args) => fetch(...args));
@@ -28,13 +36,70 @@ app.use("/api", (req, res, next) => {
 
 /* ---------- health ---------- */
 app.get("/api/health", (req, res) => {
+  let fontsInstalled = false;
+  try { fontsInstalled = fs.existsSync(FONTS_DIR) && fs.readdirSync(FONTS_DIR).some((f) => f.endsWith(".ttf")); } catch (e) {}
   res.json({
     ok: true,
     anthropicKey: Boolean(process.env.ANTHROPIC_API_KEY),
     ahrefsKey: Boolean(process.env.AHREFS_API_KEY),
     passcode: Boolean(process.env.APP_PASSCODE),
-    version: "4.0.0"
+    fontsInstalled: fontsInstalled,
+    version: "4.1.0"
   });
+});
+
+/* ---------- v4.1: PPTX font embedding (§7.1) ----------
+   Pure JS (JSZip), no Python dependency. Post-processes a client-built
+   PPTX (arraybuffer -> base64) so it renders true brand typography on
+   machines without the fonts installed. Purely additive; idempotent. */
+app.post("/api/embed-fonts", async (req, res) => {
+  try {
+    const b64 = req.body && req.body.pptxBase64;
+    if (!b64) return res.status(400).json({ error: "pptxBase64 required" });
+    const inputBuf = Buffer.from(b64, "base64");
+    const result = await embedFonts(inputBuf, FONTS_DIR);
+    res.json({ pptxBase64: result.buffer.toString("base64"), status: result.status, fontsAdded: result.fontsAdded });
+  } catch (e) {
+    res.status(500).json({ error: "Font embed failed: " + String(e.message || e).slice(0, 200) });
+  }
+});
+
+/* ---------- v4.1: deck PDF, first-class output (§7.2) ----------
+   Server-side render via headless LibreOffice. Requires LibreOffice
+   installed on this box: `sudo apt install -y libreoffice`, plus the
+   brand fonts available to it — copy assets/fonts/static/*.ttf into
+   ~/.local/share/fonts (or /usr/share/fonts) and run `fc-cache -f`.
+   Non-blocking by design at the call site: if this route errors, the
+   PPTX/HTML downloads still work — the client should catch and warn,
+   not halt the kit. */
+app.post("/api/render-pdf", async (req, res) => {
+  let tmpDir;
+  try {
+    const b64 = req.body && req.body.pptxBase64;
+    if (!b64) return res.status(400).json({ error: "pptxBase64 required" });
+    const inputBuf = Buffer.from(b64, "base64");
+    tmpDir = await fsp.mkdtemp(path.join(os.tmpdir(), "d2p1-pdf-"));
+    const inPath = path.join(tmpDir, "deck.pptx");
+    await fsp.writeFile(inPath, inputBuf);
+    await new Promise((resolve, reject) => {
+      execFile(
+        "soffice",
+        ["--headless", "--norestore", "--convert-to", "pdf", "--outdir", tmpDir, inPath],
+        { timeout: 60000 },
+        (err, stdout, stderr) => {
+          if (err) return reject(new Error("LibreOffice conversion failed (is it installed? `sudo apt install libreoffice`): " + String(stderr || err.message).slice(0, 200)));
+          resolve();
+        }
+      );
+    });
+    const outPath = path.join(tmpDir, "deck.pdf");
+    const pdfBuf = await fsp.readFile(outPath);
+    res.json({ pdfBase64: pdfBuf.toString("base64") });
+  } catch (e) {
+    res.status(500).json({ error: String(e.message || e).slice(0, 220) });
+  } finally {
+    if (tmpDir) fsp.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
+  }
 });
 
 /* ---------- Anthropic proxy ---------- */

@@ -117,6 +117,11 @@
   .slide .ph{flex:1;border:1px solid var(--line);border-top:3px solid var(--peri);border-radius:7px;padding:2.4% 2%}
   .slide .ph .pl{font-family:var(--disp);font-size:clamp(13px,2vw,24px);color:#FFFFFF !important;font-weight:600}
   .slide .ph .pd{font-size:clamp(8.5px,1.05vw,12px);color:#A8C4E0 !important;line-height:1.35;margin-top:4px}
+  .slide .srcline{position:absolute;left:6%;bottom:9%;font-family:var(--mono);font-size:9px;letter-spacing:.08em;color:#7A9CC0 !important}
+  .slide .srcline.modeled{color:var(--red) !important}
+  .slide .provenance{position:absolute;left:6%;bottom:9%;font-family:var(--mono);font-size:9px;letter-spacing:.06em;color:#7A9CC0 !important;font-style:italic}
+  .slide .disclosure{position:absolute;left:6%;bottom:9%;right:6%;font-family:var(--mono);font-size:8px;letter-spacing:.04em;color:#7A9CC0 !important;line-height:1.4}
+  .internal-banner{background:var(--red);color:#fff !important;font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;padding:6px 10px;border-radius:4px;margin:18px 0 10px;display:inline-block}
   .decknav{display:flex;align-items:center;justify-content:space-between;margin-top:12px}
   .navb{background:transparent;border:1px solid var(--line);color:#FFFFFF !important;border-radius:7px;padding:8px 16px;font-size:13px}
   .navb:hover{border-color:var(--peri)}
@@ -132,7 +137,7 @@
     <div>
       <div class="wordmark">ETHOS<b>M2</b> · D2P1</div>
       <h1 class="apptitle">Enterprise Meeting Kit Generator</h1>
-      <div class="subtitle">v4.0 · Production · One entry → Dossier · Deck · Interactive HTML · Authority Read</div>
+      <div class="subtitle">v4.1 · Practitioner-Scale Release · One entry → Dossier · Deck · Interactive HTML · Authority Read</div>
     </div>
     <div class="conf">Internal · Confidential</div>
   </header>
@@ -179,6 +184,26 @@
       <div class="fgroup"><label for="pains">Trigger &amp; voiced pains</label><textarea id="pains" placeholder="Why now — the event, initiative, or pressure that opened the door; pains they have voiced."></textarea></div>
       <div class="fgroup"><label for="notes">Onboarding notes / context</label><textarea id="notes" placeholder="Anything else: prior conversations, sensitivities, objectives for this meeting."></textarea></div>
 
+      <fieldset>
+        <legend>Presenting practitioner (blank = Founder mode)</legend>
+        <div class="fgroup">
+          <label for="pxrole">Role</label>
+          <select id="pxrole">
+            <option value="">— Founder (default) —</option>
+            <option value="sales_rep">Sales Rep</option>
+            <option value="focas_practitioner">FOCAS Practitioner</option>
+          </select>
+        </div>
+        <div class="row2">
+          <div class="fgroup"><label for="pxname">Name</label><input id="pxname" placeholder="Full name"></div>
+          <div class="fgroup"><label for="pxtitle">Title</label><input id="pxtitle" placeholder="Title"></div>
+        </div>
+        <div class="fgroup"><label for="pxcontact">Contact</label><input id="pxcontact" placeholder="Email and/or phone"></div>
+      </fieldset>
+      <div class="fgroup"><label for="relctx">Relationship context</label><textarea id="relctx" placeholder="How this relationship started, prior interactions — anchors Slide 2."></textarea></div>
+      <div class="fgroup"><label for="statedpriority">Client's stated priority</label><textarea id="statedpriority" placeholder="Verbatim or near-verbatim — what the client said they want."></textarea></div>
+      <div class="fgroup"><label for="includebriefing" style="display:flex;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-family:var(--body);font-size:13px;color:#A8C4E0"><input id="includebriefing" type="checkbox" style="width:auto" checked> Include Presenter Briefing layer in founder mode too</label></div>
+
       <button class="genbtn" id="gen" type="button">Generate meeting kit</button>
     </div>
 
@@ -203,11 +228,13 @@
           <button class="tab" data-t="docu" type="button">Document</button>
         </div>
         <div class="dlrow">
-          <button class="dl primary" id="dlpptx" type="button" disabled>Download PowerPoint</button>
           <button class="dl" id="dlhtml" type="button" disabled>Download HTML presentation</button>
+          <button class="dl" id="dlpdfdeck" type="button" disabled>Download deck PDF</button>
+          <button class="dl primary" id="dlpptx" type="button" disabled>Download PowerPoint</button>
           <button class="dl" id="dldoc" type="button" disabled>Download HTML document (WP drop)</button>
           <button class="dl" id="dlpdf" type="button" disabled>Download dossier PDF</button>
         </div>
+        <div class="hint" style="margin:-6px 0 14px;font-size:11.5px">PDF and interactive HTML are the presentation surfaces — fonts travel inside them; they render identically on every device. PowerPoint is the editable working format for font-equipped desktops. Present from PDF/HTML; edit in PowerPoint.</div>
         <div id="view-deck">
           <div class="empty" id="deckempty"><div class="eh">No deck yet</div>Complete the Input Packet and generate. Arrow keys navigate once slides load.</div>
           <div id="deckui" style="display:none">
@@ -274,7 +301,41 @@ const FOCAS = [
  {p:"Scale", d:"Compounding growth on proven infrastructure"}
 ];
 
-const S = { form:null, ahrefs:null, notes:null, dossier:null, deck:null, doc:null, cur:0 };
+/* ============ v4.1 — THREE-ACT ARCHITECTURE ============ */
+// Exact strings — compliance-locked per Marcus, 2026-07-10. Never
+// let the model generate these; only the code inserts them.
+const PROVENANCE_LINE = "Developed by J. Marcus Howard, Founder & President of EthosM2";
+const CERT_LINE = {
+  focas_practitioner: "Certified to deliver the FOCAS Growth Framework™ under EthosM2 governance.",
+  sales_rep: "Supported by certified FOCAS delivery under EthosM2 governance."
+};
+// PLACEHOLDER — final disclosure language is an open input from
+// Marcus, locked against the Aseret Codex. Swap this constant only.
+const DISCLOSURE_PLACEHOLDER = "This meeting kit was prepared with AI-assisted research and drafting under EthosM2 oversight. Figures are sourced from live data where indicated; all other projections are modeled estimates.";
+
+const ACT1_TYPES = ["cover","understood","stands","pattern","cost","assignment","fixed"]; // 7 slides, ≈55%
+const ACT2_TYPES = ["remedy","first90"];                                                   // 2 slides, ≤15% hard ceiling
+const ACT3_TYPES = ["deliveryteam","why","investment","decision"];                         // 4 slides, ≈30%
+
+const VOICE_FORK_DELEGATED =
+  "VOICE FORK — DELEGATED MODE, INVIOLABLE: Never first-person framework ownership — 'the framework I built' is FORBIDDEN. " +
+  "Use 'our framework' or 'the FOCAS Growth Framework™, developed by our founder.' Name the framework at most twice before Act III, " +
+  "and only as applied remedy — no history, no founder story. Do NOT write any provenance/attribution language — the provenance line " +
+  "is inserted by the app, verbatim, only on the 'why' slide. Do NOT write a certification line — the app inserts it based on the presenter's role.";
+const VOICE_FORK_FOUNDER =
+  "VOICE FORK — FOUNDER MODE: First-person framework ownership is permitted ('the framework I built'). You may expand provenance context " +
+  "on the remedy or 'why this holds' slide. Still respect the framework density ceiling — Act II is capped at ≤15% of the deck.";
+function voiceFork(presenter){ return (presenter && presenter.role && presenter.role !== "founder") ? VOICE_FORK_DELEGATED : VOICE_FORK_FOUNDER; }
+
+function rapportCalibration(originText){
+  const o = (originText || "").toLowerCase();
+  if(o.indexOf("referral") > -1) return "RAPPORT CALIBRATION — REFERRAL: Confirmation posture throughout. Zero firm re-introduction. Compress Act III credibility content further than default.";
+  if(o.indexOf("inbound") > -1) return "RAPPORT CALIBRATION — INBOUND: Compress the 'What We Understood' slide hardest of all variants. Lead problem-first — they came to us, don't re-sell the premise.";
+  if(o.indexOf("event") > -1) return "RAPPORT CALIBRATION — EVENT: Single context-anchor line on the 'What We Understood' slide referencing the event. Neutral weighting elsewhere.";
+  return "RAPPORT CALIBRATION — NEUTRAL DEFAULT: No origin-specific compression. Use the golden-reference weighting as shipped.";
+}
+
+const S = { form:null, ahrefs:null, notes:null, dossier:null, deck:null, doc:null, briefing:null, cur:0 };
 const $ = id => document.getElementById(id);
 let lastRawInfo = "";
 
@@ -302,6 +363,12 @@ function readForm(){
     title: r.querySelector(".sk-title").value.trim(),
     role: r.querySelector(".sk-role").value
   })).filter(s => s.name);
+
+  const pxRole = $("pxrole").value.trim(); // "" | "sales_rep" | "focas_practitioner"
+  const presenter = pxRole
+    ? { role: pxRole, name: $("pxname").value.trim(), title: $("pxtitle").value.trim(), contact: $("pxcontact").value.trim() }
+    : { role: "founder", name: "J. Marcus Howard", title: "Founder & President, EthosM2", contact: "" };
+
   return {
     org: $("orgname").value.trim(),
     domain: $("domain").value.trim().replace(/^https?:\/\//,"").replace(/\/.*$/,"").replace(/^www\./,""),
@@ -313,7 +380,11 @@ function readForm(){
     wedge: $("wedge").value.trim(),
     fee: $("fee").value.replace(/[^0-9]/g,""),
     pains: $("pains").value.trim(),
-    notes: $("notes").value.trim()
+    notes: $("notes").value.trim(),
+    presenter: presenter,
+    relationshipContext: $("relctx").value.trim(),
+    statedPriority: $("statedpriority").value.trim(),
+    includeBriefing: $("includebriefing").checked
   };
 }
 
@@ -335,6 +406,10 @@ if(!window.storage){
     $("track").value=f.track||"auto"; $("origin").value=f.origin||"";
     $("mdate").value=f.meeting&&f.meeting.date||""; $("mformat").value=f.meeting&&f.meeting.format||"In-person"; $("mlen").value=f.meeting&&f.meeting.length||"60 min";
     $("wedge").value=f.wedge||""; $("fee").value=f.fee||""; $("pains").value=f.pains||""; $("notes").value=f.notes||"";
+    if(f.presenter && f.presenter.role !== "founder"){
+      $("pxrole").value=f.presenter.role||""; $("pxname").value=f.presenter.name||""; $("pxtitle").value=f.presenter.title||""; $("pxcontact").value=f.presenter.contact||"";
+    }
+    $("relctx").value=f.relationshipContext||""; $("statedpriority").value=f.statedPriority||"";
     if(f.stakeholders && f.stakeholders.length){ $("stakes").innerHTML=""; f.stakeholders.forEach(stakeRow); }
   }catch(e){ /* fresh form */ }
 })();
@@ -541,16 +616,38 @@ const DOSSIER_PEOPLE_SCHEMA = {
   },
   required:["stakeholders","objections","runOfShow"]
 };
-const DECK6_SCHEMA = {
+function deckSlideSchema(typeEnum){
+  return {
+    type:"object",
+    properties:{
+      slides:{ type:"array", minItems:typeEnum.length, maxItems:typeEnum.length, items:{ type:"object", properties:{
+        t:{ type:"string", enum:typeEnum },
+        k:{ type:"string", description:"kicker, short all-caps label" },
+        h:{ type:"string", description:"headline, max 8 words" },
+        b:{ type:"array", items:{ type:"string" }, description:"max 12 words each, max 4" },
+        chips:{ type:"array", items:{ type:"object", properties:{ v:{type:"string"}, l:{type:"string"} }, required:["v","l"] } },
+        stageStatus:{ type:"array", items:{ type:"object", properties:{ stage:{type:"string"}, status:{type:"string"} }, required:["stage","status"] } },
+        phases:{ type:"array", items:{ type:"object", properties:{ label:{type:"string"}, detail:{type:"string"} }, required:["label","detail"] } },
+        modeled:{ type:"boolean", description:"true if this slide's content is a modeled/interpreted claim, not sourced data" }
+      }, required:["t","k","h"] } }
+    },
+    required:["slides"]
+  };
+}
+const ACT1_SCHEMA = deckSlideSchema(ACT1_TYPES);
+const ACT2_SCHEMA = deckSlideSchema(ACT2_TYPES);
+const ACT3_SCHEMA = deckSlideSchema(ACT3_TYPES);
+const BRIEFING_SCHEMA = {
   type:"object",
   properties:{
-    slides:{ type:"array", minItems:6, maxItems:6, items:{ type:"object", properties:{
-      t:{ type:"string", enum:["title","bio","moment","gap","cost","focas","wedge","method","timeline","investment","proof","next"] },
-      k:{ type:"string" }, h:{ type:"string", description:"max 8 words" },
-      b:{ type:"array", items:{ type:"string" }, description:"max 12 words each, max 4" }
-    }, required:["t","k","h"] } }
+    talkTrack:{ type:"array", items:{ type:"object", properties:{ act:{type:"string"}, points:{ type:"array", items:{type:"string"} } }, required:["act","points"] } },
+    wedgeRationale:{ type:"string" },
+    focasStageMapping:{ type:"array", items:{ type:"object", properties:{ stage:{type:"string"}, why:{type:"string"} }, required:["stage","why"] } },
+    objections:{ type:"array", minItems:5, maxItems:5, items:{ type:"object", properties:{ q:{type:"string"}, a:{type:"string"} }, required:["q","a"] } },
+    relationshipRecap:{ type:"string" },
+    successCriteriaTalkPoints:{ type:"array", items:{ type:"string" } }
   },
-  required:["slides"]
+  required:["talkTrack","wedgeRationale","focasStageMapping","objections","relationshipRecap","successCriteriaTalkPoints"]
 };
 const DOC_A_SCHEMA = {
   type:"object",
@@ -619,19 +716,62 @@ function dossierPeoplePrompt(f, a, notes, core){
       "\nEmit via emit_dossier_people: stakeholders, objections, runOfShow."
   };
 }
-function deckPromptPart(f, a, d, part){
-  const common = "You are EthosM2's D2P1 engine writing first-meeting slide copy. Hard compliance rules: " + COMP +
-    " Headlines max 8 words. Bullets max 12 words, max 4 per slide. No exclamation points. Emit exactly 6 slides via emit_deck6, in this exact order of t values: ";
-  const spec1 = "title, bio, moment, gap, cost, focas." +
-    " title: deck title + kicker. bio (kicker WHO IS IN THE ROOM): 3 bullets drawn ONLY from this bio: " + BIO +
-    ". moment: their trigger. gap: 3 evidence-based findings (Ahrefs numbers may appear in bullets). cost: cost of standing still. focas: h must be 'The FOCAS Growth Framework(TM)', bullets optional.";
-  const spec2 = "wedge, method, timeline, investment, proof, next." +
-    " wedge: h is the diagnostic name, bullets on what it is/is not. method: about the FOCAS Diagnostic Protocol(TM). timeline: 4 deliverable bullets on the 7-business-day clock. investment: 2 bullets on IP posture (Schedule A accompanies the agreement) — never state a fee in bullets. proof: 3 confirmed-pattern bullets, no invented client claims. next: 3 decision-path bullets.";
+function deckActPrompt(f, a, d, act){
+  const fork = voiceFork(f.presenter);
+  const rapport = rapportCalibration(f.origin);
+  const base = "You are EthosM2's D2P1 engine writing a three-act, client-first first-meeting deck. Hard compliance rules: " + COMP +
+    " Headlines max 8 words. Bullets max 12 words, max 4 per slide. No exclamation points. " +
+    "SOURCED-VS-MODELED DISCIPLINE (non-negotiable): any slide built from live Ahrefs data must be flagged modeled:false with a chips array; " +
+    "any slide that is interpretation, projection, or a target must be flagged modeled:true. " +
+    fork + " " + rapport;
+
+  if(act === 1){
+    return {
+      system: base + " Emit exactly " + ACT1_TYPES.length + " slides via emit_act1, in this exact order: " + ACT1_TYPES.join(", ") + "." +
+        " cover: client-forward — org name + practitioner identity render client-side, you only write kicker+headline. NO 'About EthosM2' framing anywhere — rapport is confirmed, never rebuilt." +
+        " understood: quote back Client's Stated Priority; anchor on Relationship Context; reflect the meeting agenda; apply the rapport calibration above." +
+        " stands: interpret the Ahrefs metrics provided — write insight bullets, not just numbers (numbers render from chips, not your bullets). modeled:false." +
+        " pattern: peer-comparison read — 'symptom to infrastructure gap.' One insight bullet from the footprint ratio. modeled:false, source is Ahrefs organic-competitors." +
+        " cost: cost of standing still, in the client's KPI language, not SEO jargon. modeled:true, clearly labeled." +
+        " assignment: restate Client's Stated Priority as a 3-part mandate. NO-NEW-SCOPE RULE: only restate scope the client has actually voiced — do not introduce anything new." +
+        " fixed: directional 'what fixed looks like' targets from the diagnostic deltas. modeled:true — flag as modeled until a baseline sprint locks real targets. This closes Act I.",
+      user: "PACKET: " + JSON.stringify({ org:f.org, orgtype:f.orgtype, track:f.track, wedge:f.wedge, pains:f.pains, meeting:f.meeting, statedPriority:f.statedPriority, relationshipContext:f.relationshipContext, origin:f.origin }) +
+        "\nAHREFS: " + JSON.stringify(a) +
+        "\nDOSSIER CORE: " + JSON.stringify({ snapshot:d.snapshot, pains:d.pains, wedge:d.wedge, priorities:d.priorities })
+    };
+  }
+
+  if(act === 2){
+    return {
+      system: base + " Emit exactly " + ACT2_TYPES.length + " slides via emit_act2, in this exact order: " + ACT2_TYPES.join(", ") + "." +
+        " ACT II HARD CEILING: these 2 slides are the entire method act — ≤15% of the 13-slide deck. Do not let this act sprawl." +
+        " remedy: the FOCAS five stages, applied-only — use stageStatus array (stage name + status like 'Diagnosed' / 'In Scope' / 'Phase 2'). No framework history, no founder story here in delegated mode." +
+        " first90: use phases array for the 90-day build — 3-4 phases, each stage-tagged to a remedy stage. Slide must communicate a fixed day-90 decision gate: continue, adjust, or stop — put this in a bullet.",
+      user: "PACKET: " + JSON.stringify({ org:f.org, wedge:f.wedge || (d.wedge && d.wedge.name), track:(d.wedge && d.wedge.track) || f.track }) +
+        "\nDOSSIER: " + JSON.stringify({ pains:d.pains, focas:d.focas, wedge:d.wedge })
+    };
+  }
+
   return {
-    system: common + (part === 1 ? spec1 : spec2),
-    user: "PACKET: " + JSON.stringify({ org:f.org, orgtype:f.orgtype, track:(d.wedge && d.wedge.track) || f.track, wedge:(f.wedge || (d.wedge && d.wedge.name)), fee:f.fee, pains:f.pains, meeting:f.meeting }) +
+    system: base + " Emit exactly " + ACT3_TYPES.length + " slides via emit_act3, in this exact order: " + ACT3_TYPES.join(", ") + "." +
+      " deliveryteam: write only kicker + headline framing 'your delivery team' — practitioner name/title/contact and the certification line render client-side, do not write them." +
+      " why: write 2-3 proof-card bullets on why the method holds (confirmed patterns only, no invented client claims). Do NOT write any provenance/attribution sentence — that renders client-side, fixed placement, exact string." +
+      " investment: write up to 2 bullets on IP posture — never state a specific fee number in bullets, the fee figure renders client-side. Price framing must reference the value gap from the cost slide, never hours." +
+      " decision: 3 decision-path bullets. Dates render client-side from the Meeting Date offset — do not invent dates.",
+    user: "PACKET: " + JSON.stringify({ org:f.org, fee:f.fee, meeting:f.meeting, presenter:f.presenter }) +
       "\nAHREFS: " + JSON.stringify(a) +
-      "\nDOSSIER CORE: " + JSON.stringify({ snapshot:d.snapshot, pains:d.pains, wedge:d.wedge, priorities:d.priorities })
+      "\nDOSSIER: " + JSON.stringify({ snapshot:d.snapshot, wedge:d.wedge })
+  };
+}
+
+function briefingPrompt(f, d, deck){
+  return {
+    system: "You are EthosM2's D2P1 engine writing the internal-only Presenter Briefing Layer that transfers founder-grade meeting prep to a certified delivery practitioner. Hard compliance rules: " + COMP +
+      " This content is NEVER client-shareable — internal use only. Generate objection handling from the diagnostic profile, org type, and fee band. Success-criteria talk points must carry the modeled-vs-locked framing (these are directional until baseline).",
+    user: "PACKET: " + JSON.stringify({ org:f.org, orgtype:f.orgtype, fee:f.fee, presenter:f.presenter, relationshipContext:f.relationshipContext, statedPriority:f.statedPriority }) +
+      "\nDOSSIER: " + JSON.stringify({ snapshot:d.snapshot, wedge:d.wedge, focas:d.focas }) +
+      "\nDECK SLIDE HEADLINES (for talk-track grounding): " + JSON.stringify((deck.slides||[]).map(function(s){ return { t:s.t, h:s.h }; })) +
+      "\nEmit via emit_briefing: talkTrack, wedgeRationale, focasStageMapping, objections (exactly 5), relationshipRecap, successCriteriaTalkPoints."
   };
 }
 function docPromptA(f, a, d, notes){
@@ -735,26 +875,66 @@ async function runFrom(from){
       }
 
       if(current === "deck"){
-        stage("deck","run","Writing slides 1–6…");
-        const p1 = deckPromptPart(S.form, S.ahrefs, S.dossier, 1);
-        const half1 = await callStructSafe({
-          system: p1.system, user: p1.user,
-          toolName: "emit_deck6", schema: DECK6_SCHEMA, maxTokens: 3000,
-          shapeHint: '{"slides":[{"t":"title","k":"...","h":"...","b":["..."]}]}',
-          validate: function(o){ return (o && o.slides && o.slides.length >= 5) ? null : "deck part 1 incomplete"; }
+        stage("deck","run","Writing Act I — the client's story (1 of 3)…");
+        const pAct1 = deckActPrompt(S.form, S.ahrefs, S.dossier, 1);
+        const act1 = await callStructSafe({
+          system: pAct1.system, user: pAct1.user,
+          toolName: "emit_act1", schema: ACT1_SCHEMA, maxTokens: 3200,
+          shapeHint: '{"slides":[{"t":"cover","k":"...","h":"...","b":["..."]}]}',
+          validate: function(o){ return (o && o.slides && o.slides.length === ACT1_TYPES.length) ? null : "act I incomplete"; }
         });
-        stage("deck","run","Writing slides 7–12…");
-        const p2 = deckPromptPart(S.form, S.ahrefs, S.dossier, 2);
-        const half2 = await callStructSafe({
-          system: p2.system, user: p2.user,
-          toolName: "emit_deck6", schema: DECK6_SCHEMA, maxTokens: 3000,
-          shapeHint: '{"slides":[{"t":"wedge","k":"...","h":"...","b":["..."]}]}',
-          validate: function(o){ return (o && o.slides && o.slides.length >= 5) ? null : "deck part 2 incomplete"; }
+
+        stage("deck","run","Writing Act II — the method, capped (2 of 3)…");
+        const pAct2 = deckActPrompt(S.form, S.ahrefs, S.dossier, 2);
+        const act2 = await callStructSafe({
+          system: pAct2.system, user: pAct2.user,
+          toolName: "emit_act2", schema: ACT2_SCHEMA, maxTokens: 2200,
+          shapeHint: '{"slides":[{"t":"remedy","k":"...","h":"...","stageStatus":[{"stage":"Foundation","status":"..."}]}]}',
+          validate: function(o){ return (o && o.slides && o.slides.length === ACT2_TYPES.length) ? null : "act II incomplete"; }
         });
-        S.deck = { slides: half1.slides.concat(half2.slides) };
-        stage("deck","done", S.deck.slides.length + " slides ready");
+
+        stage("deck","run","Writing Act III — delivery + decision (3 of 3)…");
+        const pAct3 = deckActPrompt(S.form, S.ahrefs, S.dossier, 3);
+        const act3 = await callStructSafe({
+          system: pAct3.system, user: pAct3.user,
+          toolName: "emit_act3", schema: ACT3_SCHEMA, maxTokens: 2600,
+          shapeHint: '{"slides":[{"t":"deliveryteam","k":"...","h":"..."}]}',
+          validate: function(o){ return (o && o.slides && o.slides.length === ACT3_TYPES.length) ? null : "act III incomplete"; }
+        });
+
+        const allSlides = act1.slides.concat(act2.slides, act3.slides);
+
+        // Real enforcement of the Act II ≤15% ceiling — a prompt
+        // constraint alone isn't enough per the build brief.
+        const act2Ratio = act2.slides.length / allSlides.length;
+        if(act2Ratio > 0.15 + 1e-9){
+          throw new Error("Act II ceiling violated: " + act2.slides.length + "/" + allSlides.length + " slides (" + Math.round(act2Ratio*100) + "%)");
+        }
+
+        S.deck = { slides: allSlides };
+        stage("deck","done", S.deck.slides.length + " slides · Act I " + act1.slides.length + " · Act II " + act2.slides.length + " · Act III " + act3.slides.length);
         S.cur = 0; renderDeck();
-        $("dlpptx").disabled = false; $("dlhtml").disabled = false;
+        $("dlpptx").disabled = false; $("dlhtml").disabled = false; $("dlpdfdeck").disabled = false;
+
+        // Presenter Briefing Layer — automatic in delegated mode,
+        // toggleable in founder mode. Appends to the dossier, never
+        // client-shareable. Runs after the deck so talk-track can
+        // ground itself in the actual slide headlines.
+        if(S.form.presenter.role !== "founder" || S.form.includeBriefing){
+          stage("dossier","run","Appending presenter briefing layer…");
+          const pb = briefingPrompt(S.form, S.dossier, S.deck);
+          const briefing = await callStructSafe({
+            system: pb.system, user: pb.user,
+            toolName: "emit_briefing", schema: BRIEFING_SCHEMA, maxTokens: 3000,
+            shapeHint: '{"talkTrack":[{"act":"Act I","points":["..."]}],"wedgeRationale":"...","focasStageMapping":[{"stage":"Foundation","why":"..."}],"objections":[{"q":"...","a":"..."}],"relationshipRecap":"...","successCriteriaTalkPoints":["..."]}',
+            validate: function(o){ return (o && o.objections && o.objections.length === 5) ? null : "briefing incomplete"; }
+          });
+          S.briefing = briefing;
+          stage("dossier","done", "Dossier + presenter briefing ready");
+          renderDossier();
+        } else {
+          S.briefing = null;
+        }
       }
 
       if(current === "document"){
@@ -797,8 +977,8 @@ $("gen").onclick = async function(){
   const f = readForm();
   if(!f.org || !f.domain){ banner("Organization name and primary domain are required.", true); return; }
   if(!f.stakeholders.length){ banner("Add at least one stakeholder.", true); return; }
-  S.form = f; S.ahrefs = null; S.notes = null; S.dossier = null; S.deck = null; S.doc = null;
-  $("dlpptx").disabled = true; $("dlpdf").disabled = true; $("dlhtml").disabled = true; $("dldoc").disabled = true;
+  S.form = f; S.ahrefs = null; S.notes = null; S.dossier = null; S.deck = null; S.doc = null; S.briefing = null;
+  $("dlpptx").disabled = true; $("dlpdf").disabled = true; $("dlhtml").disabled = true; $("dldoc").disabled = true; $("dlpdfdeck").disabled = true;
   try{ if(window.storage) await window.storage.set("d2p1-last-input", JSON.stringify(f)); }catch(e){}
   runFrom("ahrefs");
 };
@@ -843,6 +1023,22 @@ $("syscheck").onclick = async function(){
 <script>
 /* ============ RENDERERS ============ */
 function esc(s){ const d = document.createElement("div"); d.textContent = s == null ? "" : String(s); return d.innerHTML; }
+function abToBase64(buf){
+  let binary = ""; const bytes = new Uint8Array(buf); const chunk = 0x8000;
+  for(let i = 0; i < bytes.length; i += chunk){ binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk)); }
+  return btoa(binary);
+}
+function base64ToBlob(b64, mime){
+  const binary = atob(b64); const bytes = new Uint8Array(binary.length);
+  for(let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new Blob([bytes], { type: mime });
+}
+function triggerDownload(blob, filename){
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = filename;
+  document.body.appendChild(a); a.click();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 800);
+}
 function fmt(n){ return n == null ? "—" : Number(n).toLocaleString(); }
 function money(n){ return n == null ? "—" : "$" + Number(n).toLocaleString(); }
 
@@ -874,6 +1070,21 @@ function renderDossier(){
   h += "<h4>Run of Show</h4><ul>" + (d.runOfShow||[]).map(function(r){return "<li>"+esc(r)+"</li>";}).join("") + "</ul>";
   if(d.sources && d.sources.length) h += "<h4>Sources</h4><p style='font-size:12px;color:#7A9CC0'>" + d.sources.map(esc).join(" · ") + "</p>";
   if(S.notes) h += "<details><summary>Research notes (Stage 2 raw output)</summary><div class='notes'>" + esc(S.notes) + "</div></details>";
+  if(S.briefing){
+    const br = S.briefing;
+    h += '<div class="internal-banner">INTERNAL USE ONLY — NOT CLIENT-SHAREABLE</div>';
+    h += "<h4>Presenter Briefing — Internal</h4>";
+    h += "<h5>Suggested Talk Track</h5>";
+    br.talkTrack.forEach(function(t){
+      h += "<b>" + esc(t.act) + "</b><ul>" + (t.points||[]).map(function(p){return "<li>"+esc(p)+"</li>";}).join("") + "</ul>";
+    });
+    h += "<h5>Wedge Rationale</h5><p>" + esc(br.wedgeRationale) + "</p>";
+    h += "<h5>FOCAS Stage Mapping</h5><ul>" + br.focasStageMapping.map(function(m){return "<li><b>"+esc(m.stage)+":</b> "+esc(m.why)+"</li>";}).join("") + "</ul>";
+    h += "<h5>Objection Handling</h5>";
+    br.objections.forEach(function(o){ h += "<div class='qa'><div class='q'>" + esc(o.q) + "</div><div>" + esc(o.a) + "</div></div>"; });
+    h += "<h5>Relationship Recap</h5><p>" + esc(br.relationshipRecap) + "</p>";
+    h += "<h5>Success-Criteria Talk Points</h5><ul>" + br.successCriteriaTalkPoints.map(function(p){return "<li>"+esc(p)+"</li>";}).join("") + "</ul>";
+  }
   $("dossbox").innerHTML = h;
   $("dossbox").style.display = "block"; $("dossempty").style.display = "none";
 }
@@ -882,6 +1093,51 @@ function slideHTML(s){
   const f = S.form, a = S.ahrefs;
   const foot = '<div class="sfoot"><span>ETHOSM2 · FOCAS GROWTH FRAMEWORK™</span><span>CONFIDENTIAL</span></div>';
   const bullets = (s.b||[]).map(function(x){return "<li>"+esc(x)+"</li>";}).join("");
+  const modeledTag = s.modeled ? '<div class="srcline modeled">MODELED — INTERPRETATION, NOT SOURCED</div>' : "";
+  const sourceLine = (!s.modeled && (s.t === "stands" || s.t === "pattern")) ? '<div class="srcline">SOURCE: AHREFS · PULLED ' + esc(new Date().toLocaleDateString()) + '</div>' : "";
+
+  /* ---- v4.1 three-act slide types ---- */
+  if(s.t === "cover"){
+    const presLine = (f.presenter.role === "founder") ? "with J. Marcus Howard" :
+      "Presented by " + esc(f.presenter.name) + (f.presenter.title ? ", " + esc(f.presenter.title) : "");
+    return '<div class="kick">'+esc(s.k||"ETHOSM2 · D2P1")+'</div><h5>'+esc(s.h)+'</h5><div class="srule"></div>' +
+      '<div class="ent">Prepared for '+esc(f.org)+'</div><div class="ent" style="opacity:.75">'+presLine+'</div>'+foot;
+  }
+  if(s.t === "stands" && a){
+    const chips = (s.chips && s.chips.length ? s.chips : [["DR",a.dr],["ORGANIC /MO",fmt(a.org_traffic)],["AI CITATIONS",fmt(a.ai && a.ai.total)],["REF. DOMAINS",fmt(a.refdomains)]].map(function(c){return {v:c[1],l:c[0]};}))
+      .map(function(c){return '<div class="schip"><div class="v">'+esc(c.v)+'</div><div class="l">'+esc(c.l)+'</div></div>';}).join("");
+    return '<div class="kick">'+esc(s.k)+'</div><h5>'+esc(s.h)+'</h5><div class="srule"></div><ul>'+bullets+'</ul><div class="chiprow">'+chips+'</div>'+sourceLine+foot;
+  }
+  if(s.t === "remedy"){
+    const cards = (s.stageStatus||[]).map(function(st){return '<div class="ph"><div class="pl">'+esc(st.stage)+'</div><div class="pd">'+esc(st.status)+'</div></div>';}).join("");
+    return '<div class="kick">'+esc(s.k)+'</div><h5>'+esc(s.h)+'</h5><div class="srule"></div><div class="phases">'+cards+'</div>'+foot;
+  }
+  if(s.t === "first90"){
+    const phases = (s.phases||[]).map(function(p){return '<div class="ph"><div class="pl">'+esc(p.label)+'</div><div class="pd">'+esc(p.detail)+'</div></div>';}).join("");
+    return '<div class="kick">'+esc(s.k)+'</div><h5>'+esc(s.h)+'</h5><div class="srule"></div><div class="phases">'+phases+'</div><ul>'+bullets+'</ul>'+foot;
+  }
+  if(s.t === "deliveryteam"){
+    const certLine = CERT_LINE[f.presenter.role] || "";
+    return '<div class="kick">'+esc(s.k)+'</div><h5>'+esc(s.h)+'</h5><div class="srule"></div>' +
+      '<div class="ent" style="font-size:1.3em">'+esc(f.presenter.name)+'</div>' +
+      '<div class="ent">'+esc(f.presenter.title)+'</div>' +
+      (certLine ? '<div class="ent" style="color:var(--peri)!important;margin-top:8px">'+esc(certLine)+'</div>' : "") +
+      (f.presenter.contact ? '<div class="ent" style="opacity:.7">'+esc(f.presenter.contact)+'</div>' : "") + foot;
+  }
+  if(s.t === "why"){
+    // Provenance: fixed placement, exact string. Never generated,
+    // never repeated elsewhere in the deck.
+    return '<div class="kick">'+esc(s.k)+'</div><h5>'+esc(s.h)+'</h5><div class="srule"></div><ul>'+bullets+'</ul>' +
+      '<div class="provenance">'+esc(PROVENANCE_LINE)+'</div>'+foot;
+  }
+  if(s.t === "decision"){
+    return '<div class="kick">'+esc(s.k)+'</div><h5>'+esc(s.h)+'</h5><div class="srule"></div><ul>'+bullets+'</ul>' +
+      '<div class="disclosure">'+esc(DISCLOSURE_PLACEHOLDER)+'</div>'+foot;
+  }
+  /* understood, pattern, cost, assignment, fixed fall through to the
+     default branch at the bottom of this function (kicker+headline+
+     bullets, plus modeled/source tagging where applicable). */
+
   if(s.t === "title"){
     return '<div class="kick">' + esc(s.k||"ETHOSM2 · D2P1") + '</div><h5>' + esc(s.h) + '</h5><div class="srule"></div><div class="ent">Prepared for ' + esc(f.org) + (f.meeting.date ? " · " + esc(f.meeting.date) : "") + '</div>' + foot;
   }
@@ -902,7 +1158,7 @@ function slideHTML(s){
   if(s.t === "next"){
     return '<div class="kick">'+esc(s.k)+'</div><h5>'+esc(s.h)+'</h5><div class="redbar"></div><ul>'+bullets+'</ul><div style="font-family:var(--mono);font-size:clamp(8.5px,1.1vw,12px);letter-spacing:.08em;color:#A8C4E0 !important;margin-top:2.5%">BOOK: '+DISCOVERY.replace("https://","")+'</div>'+foot;
   }
-  return '<div class="kick">'+esc(s.k)+'</div><h5>'+esc(s.h)+'</h5><div class="srule"></div><ul>'+bullets+'</ul>'+foot;
+  return '<div class="kick">'+esc(s.k)+'</div><h5>'+esc(s.h)+'</h5><div class="srule"></div><ul>'+bullets+'</ul>'+modeledTag+sourceLine+foot;
 }
 
 function renderDeck(){
@@ -1271,8 +1527,7 @@ $("dlhtml").onclick = function(){
   }catch(e){ banner("HTML presentation export failed: " + e.message, true); }
 };
 
-$("dlpptx").onclick = function(){
-  try{
+function buildDeckPptx(){
     const f = S.form, a = S.ahrefs;
     const pptx = new PptxGenJS();
     pptx.defineLayout({ name:"W", width:13.33, height:7.5 });
@@ -1281,56 +1536,132 @@ $("dlpptx").onclick = function(){
       sl.addText("ETHOSM2 · FOCAS GROWTH FRAMEWORK™", { x:0.6, y:7.03, w:6, h:0.3, fontSize:8, fontFace:"DM Mono", color:BRAND.steel, charSpacing:2 });
       sl.addText("CONFIDENTIAL", { x:10.7, y:7.03, w:2.1, h:0.3, fontSize:8, fontFace:"DM Mono", color:BRAND.steel, align:"right", charSpacing:2 });
     };
+    const certLineFor = function(role){ return CERT_LINE[role] || ""; };
     S.deck.slides.forEach(function(s){
       const sl = pptx.addSlide();
       sl.background = { color: BRAND.deep };
-      if(s.t === "title"){
+      if(s.t === "cover"){
+        const presLine = (f.presenter.role === "founder") ? "with J. Marcus Howard" :
+          "Presented by " + f.presenter.name + (f.presenter.title ? ", " + f.presenter.title : "");
         sl.addText(s.k || "ETHOSM2 · D2P1", { x:0.6, y:2.0, w:12, h:0.4, fontSize:13, fontFace:"DM Mono", color:BRAND.peri, charSpacing:4 });
         sl.addText(s.h, { x:0.6, y:2.5, w:12.1, h:1.9, fontSize:44, fontFace:"Cormorant Garamond", bold:true, color:BRAND.white });
         sl.addShape(pptx.ShapeType.rect, { x:0.62, y:4.5, w:0.9, h:0.035, fill:{ color:BRAND.peri }, line:{ type:"none" } });
-        sl.addText("PREPARED FOR " + f.org.toUpperCase() + (f.meeting.date ? " · " + f.meeting.date : ""), { x:0.6, y:4.75, w:12, h:0.4, fontSize:12, fontFace:"DM Mono", color:BRAND.light, charSpacing:3 });
-      } else if(s.t === "focas"){
+        sl.addText("PREPARED FOR " + f.org.toUpperCase(), { x:0.6, y:4.75, w:12, h:0.4, fontSize:12, fontFace:"DM Mono", color:BRAND.light, charSpacing:3 });
+        sl.addText(presLine.toUpperCase(), { x:0.6, y:5.15, w:12, h:0.4, fontSize:11, fontFace:"DM Mono", color:BRAND.steel, charSpacing:2 });
+      } else if(s.t === "remedy"){
         sl.addText(s.k, { x:0.6, y:0.7, w:12, h:0.35, fontSize:11, fontFace:"DM Mono", color:BRAND.peri, charSpacing:4 });
         sl.addText(s.h, { x:0.6, y:1.1, w:12.1, h:1.0, fontSize:32, fontFace:"Cormorant Garamond", bold:true, color:BRAND.white });
-        FOCAS.forEach(function(p, i){
+        (s.stageStatus||FOCAS.map(function(p){return {stage:p.p, status:p.d};})).forEach(function(p, i){
           const x = 0.6 + i * 2.47;
           sl.addShape(pptx.ShapeType.rect, { x:x, y:2.6, w:2.27, h:0.05, fill:{ color:BRAND.peri }, line:{ type:"none" } });
           sl.addShape(pptx.ShapeType.rect, { x:x, y:2.65, w:2.27, h:2.6, fill:{ color:"152539" }, line:{ color:"2A3E58", width:0.75 } });
-          sl.addText(p.p, { x:x+0.12, y:2.85, w:2.05, h:0.5, fontSize:17, fontFace:"Cormorant Garamond", bold:true, color:BRAND.white });
-          sl.addText(p.d, { x:x+0.12, y:3.4, w:2.05, h:1.6, fontSize:10.5, fontFace:"DM Sans", color:BRAND.light });
+          sl.addText(p.stage, { x:x+0.12, y:2.85, w:2.05, h:0.5, fontSize:17, fontFace:"Cormorant Garamond", bold:true, color:BRAND.white });
+          sl.addText(p.status, { x:x+0.12, y:3.4, w:2.05, h:1.6, fontSize:10.5, fontFace:"DM Sans", color:BRAND.light });
         });
+      } else if(s.t === "first90"){
+        sl.addText(s.k, { x:0.6, y:0.7, w:12, h:0.35, fontSize:11, fontFace:"DM Mono", color:BRAND.peri, charSpacing:4 });
+        sl.addText(s.h, { x:0.6, y:1.1, w:12.1, h:1.0, fontSize:32, fontFace:"Cormorant Garamond", bold:true, color:BRAND.white });
+        (s.phases||[]).forEach(function(p, i){
+          const x = 0.6 + i * 3.1;
+          sl.addShape(pptx.ShapeType.rect, { x:x, y:2.6, w:2.9, h:0.05, fill:{ color:BRAND.peri }, line:{ type:"none" } });
+          sl.addShape(pptx.ShapeType.rect, { x:x, y:2.65, w:2.9, h:1.8, fill:{ color:"152539" }, line:{ color:"2A3E58", width:0.75 } });
+          sl.addText(p.label, { x:x+0.12, y:2.85, w:2.7, h:0.45, fontSize:15, fontFace:"Cormorant Garamond", bold:true, color:BRAND.white });
+          sl.addText(p.detail, { x:x+0.12, y:3.3, w:2.7, h:1.1, fontSize:10, fontFace:"DM Sans", color:BRAND.light });
+        });
+        if(s.b && s.b.length) sl.addText(s.b.map(function(b){return { text:b, options:{ bullet:{ characterCode:"2013" }, color:BRAND.light, fontSize:13, fontFace:"DM Sans", paraSpaceAfter:6 } };}), { x:0.65, y:4.8, w:11.9, h:1.6 });
+      } else if(s.t === "deliveryteam"){
+        const certLine = certLineFor(f.presenter.role);
+        sl.addText(s.k, { x:0.6, y:0.8, w:12, h:0.35, fontSize:11, fontFace:"DM Mono", color:BRAND.peri, charSpacing:4 });
+        sl.addText(s.h, { x:0.6, y:1.2, w:12.1, h:1.0, fontSize:32, fontFace:"Cormorant Garamond", bold:true, color:BRAND.white });
+        sl.addText(f.presenter.name, { x:0.6, y:2.6, w:11, h:0.6, fontSize:26, fontFace:"Cormorant Garamond", bold:true, color:BRAND.white });
+        sl.addText(f.presenter.title, { x:0.6, y:3.2, w:11, h:0.4, fontSize:14, fontFace:"DM Sans", color:BRAND.light });
+        if(certLine) sl.addText(certLine, { x:0.6, y:3.75, w:11, h:0.4, fontSize:12, fontFace:"DM Mono", color:BRAND.peri, charSpacing:1 });
+        if(f.presenter.contact) sl.addText(f.presenter.contact, { x:0.6, y:4.2, w:11, h:0.35, fontSize:11, fontFace:"DM Sans", color:BRAND.steel });
+      } else if(s.t === "why"){
+        sl.addText(s.k, { x:0.6, y:0.8, w:12, h:0.35, fontSize:11, fontFace:"DM Mono", color:BRAND.peri, charSpacing:4 });
+        sl.addText(s.h, { x:0.6, y:1.2, w:12.1, h:1.0, fontSize:32, fontFace:"Cormorant Garamond", bold:true, color:BRAND.white });
+        sl.addShape(pptx.ShapeType.rect, { x:0.62, y:2.35, w:0.9, h:0.035, fill:{ color:BRAND.peri }, line:{ type:"none" } });
+        if(s.b && s.b.length) sl.addText(s.b.map(function(b){return { text:b, options:{ bullet:{ characterCode:"2013" }, color:BRAND.light, fontSize:15, fontFace:"DM Sans", paraSpaceAfter:9 } };}), { x:0.65, y:2.65, w:11.6, h:2.4 });
+        // Provenance — fixed placement, exact string. Slide 11 only.
+        sl.addText(PROVENANCE_LINE, { x:0.62, y:6.55, w:11.5, h:0.35, fontSize:10, fontFace:"DM Mono", italic:true, color:BRAND.steel, charSpacing:1 });
       } else if(s.t === "investment"){
         sl.addText(s.k, { x:0.6, y:0.8, w:12, h:0.35, fontSize:11, fontFace:"DM Mono", color:BRAND.peri, charSpacing:4 });
         sl.addText(s.h, { x:0.6, y:1.2, w:12.1, h:1.0, fontSize:32, fontFace:"Cormorant Garamond", bold:true, color:BRAND.white });
         sl.addShape(pptx.ShapeType.rect, { x:0.62, y:2.35, w:0.65, h:0.07, fill:{ color:BRAND.red }, line:{ type:"none" } });
         sl.addText(f.fee ? money(f.fee) : "Scoped at Gate 1", { x:0.6, y:2.6, w:9, h:1.1, fontSize:46, fontFace:"Cormorant Garamond", bold:true, color:BRAND.white });
-        sl.addText(f.fee ? "FLAT FEE · 7 BUSINESS DAYS" : "FIXED FEE · FIXED CLOCK", { x:0.62, y:3.75, w:9, h:0.35, fontSize:12, fontFace:"DM Mono", color:BRAND.red, charSpacing:3 });
+        sl.addText(f.fee ? "FLAT FEE · FIXED CLOCK" : "FIXED FEE · FIXED CLOCK", { x:0.62, y:3.75, w:9, h:0.35, fontSize:12, fontFace:"DM Mono", color:BRAND.red, charSpacing:3 });
         sl.addText((s.b||[]).map(function(b){return { text:b, options:{ bullet:{ characterCode:"2013" }, color:BRAND.light, fontSize:14, fontFace:"DM Sans", paraSpaceAfter:8 } };}), { x:0.65, y:4.3, w:11.6, h:2.2 });
+      } else if(s.t === "decision"){
+        sl.addText(s.k, { x:0.6, y:0.8, w:12, h:0.35, fontSize:11, fontFace:"DM Mono", color:BRAND.peri, charSpacing:4 });
+        sl.addText(s.h, { x:0.6, y:1.2, w:12.1, h:1.0, fontSize:32, fontFace:"Cormorant Garamond", bold:true, color:BRAND.white });
+        sl.addShape(pptx.ShapeType.rect, { x:0.62, y:2.62, w:0.9, h:0.035, fill:{ color:BRAND.peri }, line:{ type:"none" } });
+        if(s.b && s.b.length) sl.addText(s.b.map(function(b){return { text:b, options:{ bullet:{ characterCode:"2013" }, color:BRAND.light, fontSize:16, fontFace:"DM Sans", paraSpaceAfter:10 } };}), { x:0.65, y:2.95, w:11.9, h:2.3 });
+        sl.addText(DISCLOSURE_PLACEHOLDER, { x:0.62, y:6.5, w:12, h:0.5, fontSize:8, fontFace:"DM Mono", color:BRAND.steel });
       } else {
+        // understood, stands, pattern, cost, assignment, fixed
         sl.addText(s.k, { x:0.6, y:0.8, w:12, h:0.35, fontSize:11, fontFace:"DM Mono", color:BRAND.peri, charSpacing:4 });
         sl.addText(s.h, { x:0.6, y:1.2, w:12.1, h:1.35, fontSize:32, fontFace:"Cormorant Garamond", bold:true, color:BRAND.white });
         sl.addShape(pptx.ShapeType.rect, { x:0.62, y:2.62, w:0.9, h:0.035, fill:{ color:BRAND.peri }, line:{ type:"none" } });
-        if(s.t === "gap" && a){
-          const chips = [["DR", String(a.dr)],["ORGANIC /MO", fmt(a.org_traffic)],["AI CITATIONS", fmt(a.ai && a.ai.total)],["REF. DOMAINS", fmt(a.refdomains)]];
+        if(s.t === "stands" && a){
+          const chips = (s.chips && s.chips.length ? s.chips.map(function(c){return [c.l,c.v];}) : [["DR", String(a.dr)],["ORGANIC /MO", fmt(a.org_traffic)],["AI CITATIONS", fmt(a.ai && a.ai.total)],["REF. DOMAINS", fmt(a.refdomains)]]);
           chips.forEach(function(c, i){
             const x = 0.6 + i * 3.1;
             sl.addShape(pptx.ShapeType.rect, { x:x, y:5.35, w:2.9, h:1.25, fill:{ color:"152539" }, line:{ color:"2A3E58", width:0.75 } });
-            sl.addText(c[1], { x:x+0.15, y:5.5, w:2.6, h:0.5, fontSize:20, fontFace:"DM Mono", color:BRAND.white });
-            sl.addText(c[0], { x:x+0.15, y:6.05, w:2.6, h:0.35, fontSize:9, fontFace:"DM Mono", color:BRAND.steel, charSpacing:2 });
+            sl.addText(String(c[1]), { x:x+0.15, y:5.5, w:2.6, h:0.5, fontSize:20, fontFace:"DM Mono", color:BRAND.white });
+            sl.addText(String(c[0]), { x:x+0.15, y:6.05, w:2.6, h:0.35, fontSize:9, fontFace:"DM Mono", color:BRAND.steel, charSpacing:2 });
           });
         }
         if(s.b && s.b.length){
           sl.addText(s.b.map(function(b){return { text:b, options:{ bullet:{ characterCode:"2013" }, color:BRAND.light, fontSize:16, fontFace:"DM Sans", paraSpaceAfter:10 } };}), { x:0.65, y:2.95, w:11.9, h:2.3 });
         }
-        if(s.t === "next"){
-          sl.addText("BOOK: " + DISCOVERY.replace("https://",""), { x:0.62, y:5.9, w:12, h:0.4, fontSize:11, fontFace:"DM Mono", color:BRAND.light, charSpacing:2 });
+        if(s.modeled){
+          sl.addText("MODELED — INTERPRETATION, NOT SOURCED", { x:0.62, y:6.6, w:8, h:0.3, fontSize:9, fontFace:"DM Mono", color:BRAND.red, charSpacing:1 });
+        } else if(s.t === "stands" || s.t === "pattern"){
+          sl.addText("SOURCE: AHREFS · PULLED " + new Date().toLocaleDateString(), { x:0.62, y:6.6, w:8, h:0.3, fontSize:9, fontFace:"DM Mono", color:BRAND.steel, charSpacing:1 });
         }
       }
       FOOT(sl);
     });
-    const fname = (f.org || "Entity").replace(/[^A-Za-z0-9]+/g, "_") + "_EM2_First_Meeting_Deck.pptx";
-    pptx.writeFile({ fileName: fname });
+    return pptx;
+}
+
+/* v4.1 — PPTX now round-trips through the server for font embedding
+   (§7.1) before download. If the embed step fails for any reason, we
+   fall back to the raw (unembedded) file rather than blocking the
+   download entirely — the user still gets a deck, just without the
+   guaranteed cross-machine typography. */
+$("dlpptx").onclick = async function(){
+  const fname = (S.form.org || "Entity").replace(/[^A-Za-z0-9]+/g, "_") + "_EM2_First_Meeting_Deck.pptx";
+  try{
+    banner("Embedding brand fonts…");
+    const pptx = buildDeckPptx();
+    const raw = await pptx.write({ outputType: "arraybuffer" });
+    try{
+      const embedded = await serverPost("/api/embed-fonts", { pptxBase64: abToBase64(raw) });
+      triggerDownload(base64ToBlob(embedded.pptxBase64, "application/vnd.openxmlformats-officedocument.presentationml.presentation"), fname);
+      banner("");
+    }catch(embedErr){
+      triggerDownload(new Blob([raw], { type:"application/vnd.openxmlformats-officedocument.presentationml.presentation" }), fname);
+      banner("Font embedding unavailable (" + String(embedErr.message).slice(0,90) + ") — downloaded without embedded fonts. Present from PDF/HTML instead, or install the brand fonts locally.", true);
+    }
   }catch(e){ banner("PowerPoint export failed: " + e.message, true); }
+};
+
+/* v4.1 — deck PDF, first-class output (§7.2). Server renders via
+   headless LibreOffice after font embedding, so typography is true
+   even without PowerPoint installed. Non-blocking: failure here
+   never disables the other download buttons. */
+$("dlpdfdeck").onclick = async function(){
+  const fname = (S.form.org || "Entity").replace(/[^A-Za-z0-9]+/g, "_") + "_EM2_First_Meeting_Deck.pdf";
+  try{
+    banner("Rendering deck PDF (server-side, true typography)…");
+    const pptx = buildDeckPptx();
+    const raw = await pptx.write({ outputType: "arraybuffer" });
+    const embedded = await serverPost("/api/embed-fonts", { pptxBase64: abToBase64(raw) });
+    const rendered = await serverPost("/api/render-pdf", { pptxBase64: embedded.pptxBase64 });
+    triggerDownload(base64ToBlob(rendered.pdfBase64, "application/pdf"), fname);
+    banner("");
+  }catch(e){ banner("Deck PDF export failed (" + String(e.message).slice(0,100) + "). PPTX and HTML downloads are unaffected.", true); }
 };
 
 $("dlpdf").onclick = function(){
@@ -1389,6 +1720,27 @@ $("dlpdf").onclick = function(){
     (d.objections || []).forEach(function(o){ P("Q: " + o.q, { bold:true, gap:1 }); P("A: " + o.a, { gap:7 }); });
     H("Run of Show"); BUL(d.runOfShow);
     if(d.sources && d.sources.length){ H("Sources"); P(d.sources.join(" · "), { size:8.5, color:STEEL }); }
+    // v4.1 — Presenter Briefing Layer: appended final chapter,
+    // visually separated with an internal-use banner. Not part of
+    // any client-shareable export path (dossier PDF is internal-only
+    // by convention already; this section is doubly marked).
+    if(S.briefing){
+      const br = S.briefing;
+      room(30); doc.setFillColor(RED); doc.rect(M, y - 12, CW, 20, "F");
+      doc.setFont("courier","bold"); doc.setFontSize(8.5); doc.setTextColor("#FFFFFF");
+      doc.text("INTERNAL USE ONLY — NOT CLIENT-SHAREABLE", M + 8, y + 2);
+      y += 26;
+      H("Presenter Briefing — Internal");
+      P("Suggested Talk Track", { bold:true, gap:4 });
+      (br.talkTrack || []).forEach(function(t){ P(t.act, { bold:true, gap:1 }); BUL(t.points); });
+      H("Wedge Rationale"); P(br.wedgeRationale);
+      H("FOCAS Stage Mapping");
+      (br.focasStageMapping || []).forEach(function(m){ P(m.stage + ": " + m.why, { gap:2 }); });
+      H("Objection Handling (Top 5)");
+      (br.objections || []).forEach(function(o){ P("Q: " + o.q, { bold:true, gap:1 }); P("A: " + o.a, { gap:7 }); });
+      H("Relationship Recap"); P(br.relationshipRecap);
+      H("Success-Criteria Talk Points"); BUL(br.successCriteriaTalkPoints);
+    }
     doc.save((f.org || "Entity").replace(/[^A-Za-z0-9]+/g, "_") + "_EM2_Dossier.pdf");
   }catch(e){ banner("PDF export failed: " + e.message, true); }
 };

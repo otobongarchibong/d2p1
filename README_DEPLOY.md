@@ -1,9 +1,9 @@
-# EM2 D2P1 Meeting Kit Generator — Production Deployment (v4.0)
+# EM2 D2P1 Meeting Kit Generator — Production Deployment (v4.1)
 
-Self-hosted build. Same five-stage pipeline and four exports as the app,
-served from EM2 infrastructure. API keys live on the server only.
+Self-hosted build. v4.1 adds server-side PPTX font embedding and a
+first-class deck PDF export. Still Node-only — no Python added.
 
-## What Otobong needs (≈15 minutes)
+## What Otobong needs (≈20 minutes, +10 if adding deck PDF)
 1. **Server**: any box with Node 18+ (a $6/mo VPS is plenty).
 2. **Upload** this folder, then:
        npm install --omit=dev
@@ -18,6 +18,25 @@ served from EM2 infrastructure. API keys live on the server only.
        location / { proxy_pass http://127.0.0.1:8787; }
    Add TLS via certbot as usual.
 6. **Open the URL → hit "System check."** Expected:
+
+## v4.1 — one new system dependency, deck PDF only
+Font embedding (`/api/embed-fonts`) needs nothing extra — it's pure JS
+(JSZip, already in package.json) reading the TTFs shipped in
+`assets/fonts/static/`. PPTX download works out of the box after a
+normal `npm install`.
+
+**Deck PDF** (`/api/render-pdf`) shells out to headless LibreOffice.
+This is unavoidable regardless of language — it's the only reliable
+way to get true server-side PPTX→PDF rendering. One-time setup on the
+droplet:
+       sudo apt update && sudo apt install -y libreoffice fontconfig
+       mkdir -p ~/.local/share/fonts
+       cp assets/fonts/static/*.ttf ~/.local/share/fonts/
+       fc-cache -f
+If LibreOffice isn't installed, the "Download deck PDF" button will
+show an error but **won't block** the PowerPoint or HTML downloads —
+the render is called independently and fails gracefully.
+
    `server ✓ · model ✓ · structured output ✓ · Ahrefs ✓ (units left)`
 
 ## Smoke tests (curl)
