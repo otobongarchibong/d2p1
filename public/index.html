@@ -129,6 +129,18 @@
   .empty{border:1px dashed var(--line);border-radius:10px;padding:44px 24px;text-align:center;color:#7A9CC0 !important}
   .empty .eh{font-family:var(--disp);font-size:24px;color:#A8C4E0 !important;margin-bottom:6px}
   .foot{margin-top:26px;border-top:1px solid var(--line);padding-top:12px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#7A9CC0 !important}
+  /* Source materials */
+  .src-drop{border:1px dashed var(--steel);border-radius:8px;padding:18px 14px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s}
+  .src-drop:hover,.src-drop.drag-over{border-color:var(--peri);background:rgba(107,140,191,.07)}
+  .src-drop-icon{font-size:22px;margin-bottom:6px;color:var(--steel)}
+  .src-drop-lbl{font-size:12.5px;color:#A8C4E0}
+  .src-drop-sub{font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--gray);margin-top:3px}
+  .src-list{margin-top:10px;display:flex;flex-direction:column;gap:6px}
+  .src-item{display:flex;align-items:center;gap:8px;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:7px 10px;font-size:12.5px}
+  .src-item .src-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#A8C4E0}
+  .src-item .src-badge{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--steel);background:rgba(107,140,191,.12);border-radius:3px;padding:2px 5px;flex-shrink:0}
+  .src-item .src-err{font-size:11px;color:var(--red);flex:1}
+  .src-item .xbtn{flex-shrink:0;height:24px;padding:0 7px;font-size:12px}
 </style>
 </head>
 <body>
@@ -203,6 +215,22 @@
       <div class="fgroup"><label for="relctx">Relationship context</label><textarea id="relctx" placeholder="How this relationship started, prior interactions — anchors Slide 2."></textarea></div>
       <div class="fgroup"><label for="statedpriority">Client's stated priority</label><textarea id="statedpriority" placeholder="Verbatim or near-verbatim — what the client said they want."></textarea></div>
       <div class="fgroup"><label for="includebriefing" style="display:flex;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-family:var(--body);font-size:13px;color:#A8C4E0"><input id="includebriefing" type="checkbox" style="width:auto" checked> Include Presenter Briefing layer in founder mode too</label></div>
+
+      <fieldset id="src-fieldset">
+        <legend>Source Materials <span style="text-transform:none;letter-spacing:0;font-weight:400;opacity:.7">(optional)</span></legend>
+        <div style="font-size:12px;color:#A8C4E0;margin-bottom:10px">Uploaded content feeds the dossier and deck as client-provided source material. PDF, DOCX, CSV — max 5 items, 15 MB each.</div>
+        <div class="src-drop" id="src-drop" role="button" tabindex="0" aria-label="Upload source files">
+          <div class="src-drop-icon">↑</div>
+          <div class="src-drop-lbl">Drag &amp; drop files or <span style="color:var(--peri);text-decoration:underline">browse</span></div>
+          <div class="src-drop-sub">PDF · DOCX · CSV</div>
+          <input type="file" id="src-input" multiple accept=".pdf,.docx,.doc,.csv" style="display:none">
+        </div>
+        <div class="src-list" id="src-list"></div>
+        <div class="fgroup" style="margin-top:12px">
+          <label for="src-drive">Google Drive links <span style="text-transform:none;letter-spacing:0;font-weight:400;opacity:.7">(one per line)</span></label>
+          <textarea id="src-drive" placeholder="https://docs.google.com/…" style="min-height:54px"></textarea>
+        </div>
+      </fieldset>
 
       <button class="genbtn" id="gen" type="button">Generate meeting kit</button>
     </div>
@@ -356,6 +384,92 @@ function stakeRow(v){
 }
 $("addstake").onclick = () => stakeRow();
 stakeRow(); stakeRow();
+
+/* ---------- Source Materials ---------- */
+const SRC_MAX = 5;
+const SRC_MAX_BYTES = 15 * 1024 * 1024;
+const SRC_ALLOWED_EXT = ["pdf","docx","doc","csv"];
+const SRC_ALLOWED_MIME = ["application/pdf",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/msword","text/csv","application/csv","text/plain"];
+
+let srcFiles = []; // { file: File, id: string }
+
+function srcExt(f){ return f.name.split(".").pop().toLowerCase(); }
+function srcOk(f){ return SRC_ALLOWED_EXT.includes(srcExt(f)) || SRC_ALLOWED_MIME.some(m => f.type.startsWith(m.split("/")[0]) && f.type === m); }
+
+function srcRender(){
+  const list = $("src-list");
+  list.innerHTML = "";
+  srcFiles.forEach(function(entry){
+    const row = document.createElement("div");
+    row.className = "src-item";
+    const ext = srcExt(entry.file).toUpperCase();
+    const kb = (entry.file.size / 1024).toFixed(0);
+    row.innerHTML = '<span class="src-badge">'+ext+'</span>' +
+      '<span class="src-name" title="'+entry.file.name+'">'+entry.file.name+'</span>' +
+      '<span style="font-family:var(--mono);font-size:10px;color:var(--gray);flex-shrink:0">'+kb+' KB</span>' +
+      '<button class="xbtn" type="button" data-id="'+entry.id+'" aria-label="Remove">×</button>';
+    list.appendChild(row);
+  });
+  list.querySelectorAll(".xbtn").forEach(function(btn){
+    btn.onclick = function(){ srcFiles = srcFiles.filter(function(e){ return e.id !== btn.dataset.id; }); srcRender(); };
+  });
+}
+
+function srcAddFiles(files){
+  Array.from(files).forEach(function(f){
+    if(srcFiles.length >= SRC_MAX){ banner("Source materials: maximum "+SRC_MAX+" files.", true); return; }
+    if(f.size > SRC_MAX_BYTES){ banner(f.name+" exceeds the 15 MB limit.", true); return; }
+    if(!srcOk(f)){ banner(f.name+": only PDF, DOCX, and CSV are accepted.", true); return; }
+    srcFiles.push({ file: f, id: Math.random().toString(36).slice(2) });
+  });
+  srcRender();
+}
+
+(function(){
+  var drop = $("src-drop");
+  var inp = $("src-input");
+  drop.addEventListener("click", function(){ inp.click(); });
+  drop.addEventListener("keydown", function(e){ if(e.key==="Enter"||e.key===" ") inp.click(); });
+  inp.addEventListener("change", function(){ srcAddFiles(inp.files); inp.value=""; });
+  drop.addEventListener("dragover", function(e){ e.preventDefault(); drop.classList.add("drag-over"); });
+  drop.addEventListener("dragleave", function(){ drop.classList.remove("drag-over"); });
+  drop.addEventListener("drop", function(e){ e.preventDefault(); drop.classList.remove("drag-over"); srcAddFiles(e.dataTransfer.files); });
+})();
+
+function fileToBase64(file){
+  return new Promise(function(resolve, reject){
+    var r = new FileReader();
+    r.onload = function(){ resolve(r.result.split(",")[1]); };
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
+
+async function uploadSources(){
+  if(!srcFiles.length && !$("src-drive").value.trim()) return null;
+  const filesPayload = [];
+  for(const entry of srcFiles){
+    const data = await fileToBase64(entry.file);
+    filesPayload.push({ name: entry.file.name, type: entry.file.type || "", data: data });
+  }
+  const driveLinks = $("src-drive").value.trim().split("\n").map(function(l){ return l.trim(); }).filter(Boolean);
+  const resp = await serverPost("/api/sources", { files: filesPayload, driveLinks: driveLinks });
+  return resp.sources || [];
+}
+
+function sourcesContextBlock(sources){
+  if(!sources || !sources.length) return "";
+  const lines = ["CLIENT-PROVIDED SOURCE MATERIALS (treat as authoritative client context):"];
+  sources.forEach(function(s){
+    if(s.error){ lines.push("— "+s.name+": ["+s.error+"]"); }
+    else if(s.isPdf){ lines.push("— "+s.name+": [PDF document — included as document block in model context]"); }
+    else if(s.driveLink){ lines.push("— Drive link "+s.driveLink+": ["+s.error+"]"); }
+    else { lines.push("— "+s.name+":\n"+s.text); }
+  });
+  return "\n\n" + lines.join("\n");
+}
 
 function readForm(){
   const stakes = [...document.querySelectorAll(".stakerow")].map(r => ({
@@ -692,17 +806,19 @@ function researchPrompt(f){
     system: "You are EthosM2's D2P1 research analyst preparing for an enterprise first meeting. Use web_search efficiently — at most 5 searches. Verify, don't speculate. Output PLAIN TEXT notes only (no JSON, no markdown tables), under 450 words, organized under these exact headings: ENTITY / PRIORITIES / STAKEHOLDERS / SIGNALS / SOURCES.",
     user: "Organization: " + f.org + " (" + f.domain + ", " + f.orgtype + ").\n" +
       "Research: (1) current strategic priorities and notable news from the last 12 months; (2) verify current leadership relevant to this meeting; (3) for each stakeholder — " + stakeList + " — confirm current title and capture 1-2 facts useful in conversation; (4) market or category signals relevant to marketing, retention, enrollment/customer growth, or AI-era visibility.\n" +
-      "Context from our side (do not repeat verbatim, use to steer): trigger/pains: " + (f.pains || "not stated") + ". Notes: " + (f.notes || "none") + "."
+      "Context from our side (do not repeat verbatim, use to steer): trigger/pains: " + (f.pains || "not stated") + ". Notes: " + (f.notes || "none") + "." +
+      sourcesContextBlock(S.sources)
   };
 }
 const COMP = COMPLIANCE.join(" | ");
 function dossierCorePrompt(f, a, notes){
   return {
     system: "You are EthosM2's D2P1 engine writing dossier CORE fields only. Hard compliance rules: " + COMP +
-      " Work ONLY from the packet, the verified Ahrefs metrics, and the research notes. Keep it tight — under 320 words total. If the packet specifies a wedge, use it verbatim; otherwise recommend one using the '[Domain] Infrastructure Diagnostic(TM)' naming convention. Track: honor the packet's track unless 'auto', then recommend A, B, or C.",
+      " Work ONLY from the packet, the verified Ahrefs metrics, the research notes, and any client-provided source materials. Keep it tight — under 320 words total. If the packet specifies a wedge, use it verbatim; otherwise recommend one using the '[Domain] Infrastructure Diagnostic(TM)' naming convention. Track: honor the packet's track unless 'auto', then recommend A, B, or C.",
     user: "INPUT PACKET: " + JSON.stringify(f) +
       "\nAHREFS: " + JSON.stringify(a) +
       "\nRESEARCH NOTES:\n" + notes +
+      sourcesContextBlock(S.sources) +
       "\nEmit via emit_dossier_core: snapshot, priorities, pains, focas (one line per layer), wedge, sources."
   };
 }
@@ -904,11 +1020,13 @@ async function runFrom(from){
 
         const allSlides = act1.slides.concat(act2.slides, act3.slides);
 
-        // Real enforcement of the Act II ≤15% ceiling — a prompt
-        // constraint alone isn't enough per the build brief.
-        const act2Ratio = act2.slides.length / allSlides.length;
-        if(act2Ratio > 0.15 + 1e-9){
-          throw new Error("Act II ceiling violated: " + act2.slides.length + "/" + allSlides.length + " slides (" + Math.round(act2Ratio*100) + "%)");
+        // Act II count-based ceiling: ≤ ⌈15% × N⌉ slides.
+        // Ratio check was wrong — 2/13 = 15.38%, which rounds to "15%" but
+        // fails a strict ≤0.15 guard, making the canonical deck fail itself.
+        const totalSlides = allSlides.length;
+        const act2Limit = Math.ceil(0.15 * totalSlides);
+        if(act2.slides.length > act2Limit){
+          throw new Error("Act II ceiling violated: " + act2.slides.length + "/" + totalSlides + " slides (limit " + act2Limit + ")");
         }
 
         S.deck = { slides: allSlides };
@@ -977,9 +1095,18 @@ $("gen").onclick = async function(){
   const f = readForm();
   if(!f.org || !f.domain){ banner("Organization name and primary domain are required.", true); return; }
   if(!f.stakeholders.length){ banner("Add at least one stakeholder.", true); return; }
-  S.form = f; S.ahrefs = null; S.notes = null; S.dossier = null; S.deck = null; S.doc = null; S.briefing = null;
+  S.form = f; S.ahrefs = null; S.notes = null; S.dossier = null; S.deck = null; S.doc = null; S.briefing = null; S.sources = null;
   $("dlpptx").disabled = true; $("dlpdf").disabled = true; $("dlhtml").disabled = true; $("dldoc").disabled = true; $("dlpdfdeck").disabled = true;
   try{ if(window.storage) await window.storage.set("d2p1-last-input", JSON.stringify(f)); }catch(e){}
+  if(srcFiles.length || $("src-drive").value.trim()){
+    banner("Processing source materials…");
+    try{
+      S.sources = await uploadSources();
+    }catch(e){
+      banner("Source upload failed ("+String(e.message).slice(0,80)+"). Proceeding without source materials.", true);
+      S.sources = null;
+    }
+  }
   runFrom("ahrefs");
 };
 

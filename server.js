@@ -197,6 +197,90 @@ app.post("/api/ahrefs", async (req, res) => {
   }
 });
 
+/* ---------- Source materials processor ---------- */
+const ALLOWED_EXT = new Set(["pdf","docx","doc","csv"]);
+const ALLOWED_MIME = new Set([
+  "application/pdf",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/msword",
+  "text/csv","application/csv","text/plain"
+]);
+const SRC_CHAR_BUDGET = 50000;
+
+app.post("/api/sources", express.json({ limit: "80mb" }), async (req, res) => {
+  try {
+    const files = (Array.isArray(req.body.files) ? req.body.files : []).slice(0, 5);
+    const driveLinks = (Array.isArray(req.body.driveLinks) ? req.body.driveLinks : []).slice(0, 5);
+    const results = [];
+    let charBudget = SRC_CHAR_BUDGET;
+
+    for (const file of files) {
+      const name = String(file.name || "file");
+      const ext = name.split(".").pop().toLowerCase();
+      const mime = String(file.type || "");
+
+      if (!ALLOWED_EXT.has(ext) && !ALLOWED_MIME.has(mime)) {
+        results.push({ name, error: "Unsupported file type. Only PDF, DOCX, and CSV accepted." });
+        continue;
+      }
+
+      const buf = Buffer.from(String(file.data || ""), "base64");
+
+      if (ext === "pdf" || mime === "application/pdf") {
+        results.push({ name, isPdf: true, pdfBase64: file.data, size: buf.length });
+        continue;
+      }
+
+      if (ext === "doc") {
+        results.push({ name, error: "Legacy .doc format is not supported. Please convert to .docx and re-upload." });
+        continue;
+      }
+
+      if (ext === "docx" || mime.includes("wordprocessingml")) {
+        try {
+          const JSZip = require("jszip");
+          const zip = await JSZip.loadAsync(buf);
+          const xmlFile = zip.file("word/document.xml");
+          if (!xmlFile) throw new Error("word/document.xml not found in archive");
+          const xml = await xmlFile.async("string");
+          let text = xml
+            .replace(/<w:br[^>]*\/>/g, "\n")
+            .replace(/<w:p[ >][^>]*>/g, "\n")
+            .replace(/<[^>]+>/g, "")
+            .replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,'"').replace(/&#39;/g,"'")
+            .replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim()
+            .slice(0, charBudget);
+          charBudget = Math.max(0, charBudget - text.length);
+          results.push({ name, text: "SOURCED — " + name + ":\n" + text });
+        } catch(e) {
+          results.push({ name, error: "DOCX extraction failed: " + String(e.message).slice(0, 120) });
+        }
+        continue;
+      }
+
+      if (ext === "csv" || mime.includes("csv") || mime === "text/plain") {
+        const raw = buf.toString("utf8");
+        const lines = raw.split(/\r?\n/).filter(l => l.trim()).slice(0, 300);
+        const structured = ("SOURCED — " + name + " (CSV):\n" + lines.join("\n")).slice(0, charBudget);
+        charBudget = Math.max(0, charBudget - structured.length);
+        results.push({ name, text: structured });
+        continue;
+      }
+
+      results.push({ name, error: "Unhandled file type." });
+    }
+
+    for (const link of driveLinks) {
+      if (!link) continue;
+      results.push({ driveLink: link, error: "Drive link processing requires Drive API authorization. Adjust sharing settings or upload the file directly." });
+    }
+
+    res.json({ sources: results });
+  } catch(e) {
+    res.status(500).json({ error: "Source processing failed: " + String(e.message || e).slice(0, 160) });
+  }
+});
+
 const PORT = process.env.PORT || 8787;
 if (require.main === module) {
   app.listen(PORT, () => console.log("EM2 D2P1 production server on http://localhost:" + PORT));
